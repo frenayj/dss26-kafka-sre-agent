@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: clearing-settlement-svc
+  datasource:
+    url: ${CLEARING_DB_URL}
+    username: ${CLEARING_DB_USER}
+    password: ${CLEARING_DB_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL}
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    producer:
+      client-id: clearing-settlement-svc
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        enable.idempotence: true
+        compression.type: zstd
+        # Schemas are registered through CI (schema-compat), not at runtime.
+        auto.register.schemas: false
+        use.latest.version: true
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      max-poll-records: 200
+      properties:
+        specific.avro.reader: true
+    listener:
+      ack-mode: record
+      concurrency: 2
+
+clearing:
+  inbox: ${CLEARING_INBOX:/mft/inbound/clearing}
+  done: ${CLEARING_DONE:/mft/archive/clearing}
+  poll-interval: PT1M
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

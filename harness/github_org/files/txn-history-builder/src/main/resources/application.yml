@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: txn-history-builder
+  datasource:
+    url: ${TXN_HISTORY_DB_URL}
+    username: ${TXN_HISTORY_DB_USER}
+    password: ${TXN_HISTORY_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL}
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    consumer:
+      group-id: txn-history-builder
+      client-id: txn-history-builder
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      max-poll-records: 500
+      properties:
+        spring.deserializer.value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
+        specific.avro.reader: true
+        fetch.min.bytes: 1
+        fetch.max.wait.ms: 500
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
+        partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+    listener:
+      type: batch
+      ack-mode: batch
+      concurrency: 3
+
+txn-history:
+  topic: cards.authorisation.requested.v1
+  accepted-tiers: prod
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  statsd:
+    metrics:
+      export:
+        flavor: datadog
+        host: ${DD_AGENT_HOST:localhost}
+        port: 8125

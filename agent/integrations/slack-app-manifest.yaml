@@ -1,0 +1,31 @@
+# Slack app for the agent's reporter, used only when SLACK_MODE=live.
+#
+# api.slack.com/apps -> Create New App -> From a manifest -> pick your
+# workspace -> paste this file on the YAML tab -> Create. Then Install to
+# Workspace and copy the Bot User OAuth Token (xoxb-...) into SLACK_BOT_TOKEN.
+# Full steps: README.md, "Going live" -> "Slack".
+#
+# The agent calls only auth.test (no scope) and chat.postMessage, so chat:write
+# is all it needs. With that alone the bot can post only to channels it has
+# been invited to (/invite @kafka-sre-agent), which is the point: keep
+# chat:write.public commented out unless you want it to reach every public
+# channel in the workspace.
+display_information:
+  name: Kafka SRE Agent
+  description: Posts the on-call summary when the Kafka SRE agent finishes investigating an incident.
+  background_color: "#1f2a44"
+features:
+  bot_user:
+    display_name: kafka-sre-agent
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      # - chat:write.public
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  # Rotation would make the xoxb token expire after 12 hours, and the agent
+  # has no refresh-token flow.
+  token_rotation_enabled: false

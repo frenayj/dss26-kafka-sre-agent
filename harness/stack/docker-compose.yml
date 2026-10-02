@@ -1,0 +1,455 @@
+# Kafka SRE Agent - the whole demo stack.
+#
+#   make up                     # recommended: provisions the Lenses service account first
+#   docker compose --env-file .env -f harness/stack/docker-compose.yml up -d --build
+#
+# --env-file matters: without it compose looks for harness/stack/.env, and
+# ${ACCEPT_EULA} and friends resolve to empty strings.
+#
+# What runs:
+#   Lenses        HQ (:9991, admin/admin), one Lenses agent, Lenses MCP (:8000)
+#   Kafka         one fast-data-dev cluster, "cards-prod-euw1" (broker + Schema
+#                 Registry + Connect), plus the fraud-decisioning consumer
+#   Agent         LiteLLM gateway (:4000), agent server (:8765), UI (:8080)
+#   Tracing       Phoenix (:6006)
+#   One-shots     create-configs, seeder
+
+# Compose prefixes networks and volumes with the project name, which keeps
+# this stack's state apart from any other Lenses stack on the machine.
+name: dss26
+
+services:
+  # ===========================================================================
+  # Lenses: HQ (control plane), one agent (attached to the cluster), MCP
+  # ===========================================================================
+
+  lenses-hq:
+    image: lensesio/lenses-hq:6.2.8
+    pull_policy: always
+    command: /app/config.yaml
+    ports:
+      - ${HOST_PORT_HQ:-9991}:9991
+    depends_on:
+      postgres:
+        condition: service_healthy
+      create-configs:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "lenses-hq", "is-up", "lenses-hq:9991"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - lenses-hq-volume:/app
+
+  # Registers the environment "cards-prod-euw1" in HQ and attaches to the broker.
+  lenses-agent-prod:
+    image: lensesio/lenses-agent:6.2.8
+    pull_policy: always
+    environment:
+      DEMO_HQ_URL: http://lenses-hq:9991
+      DEMO_HQ_USER: ${DEMO_HQ_USER:-admin}
+      DEMO_HQ_PASSWORD: ${DEMO_HQ_PASSWORD:-admin}
+      DEMO_HQ_ENV_NAME: cards-prod-euw1
+      DEMO_AGENTKEY_PATH: /mnt/settings/AGENTKEY
+      LENSES_HEAP_OPTS: -Xmx2048m -Xms512m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      lenses-hq:
+        condition: service_healthy
+      create-configs:
+        condition: service_completed_successfully
+      demo-kafka-prod:
+        condition: service_started
+    volumes:
+      - lenses-agent-prod-settings:/mnt/settings
+
+  # The Lenses MCP server the diagnosis sub-agent calls over HTTP.
+  lenses-mcp:
+    # Pinned to a digest because harness/stack/patches/ bind-mounts full copies of two
+    # of this image's source files: a patch that replaces whole files is only
+    # valid against the exact image it was derived from. Bump the digest and
+    # re-derive the patches together.
+    image: lensesio/mcp:6.2@sha256:b27dc04aa12940669f76b2d4157820ed59faae36db8b2b27322a59263fc10798
+    container_name: lenses-mcp
+    environment:
+      TRANSPORT: http
+      # API-key mode: `make provision` mints a service account and writes its
+      # key to harness/stack/sa-credentials.conf (read via env_file below). Don't set
+      # LENSES_API_KEY here - an `environment:` entry beats `env_file:`, so an
+      # empty value would clobber the provisioned key.
+      OAUTH_ENABLED: false
+      LENSES_URL: http://lenses-hq:9991
+      LENSES_ADVERTISED_URL: http://localhost:${HOST_PORT_HQ:-9991}
+      MCP_ADVERTISED_URL: http://localhost:${HOST_PORT_MCP:-8000}
+    ports:
+      - ${HOST_PORT_MCP:-8000}:8000
+    env_file:
+      - path: sa-credentials.conf
+        required: false
+    # mcp 6.2's HTTP client hardcodes `Accept: application/json`, but the
+    # connector-definition endpoint serves YAML only (HTTP 415), which breaks
+    # get_kafka_connector_target_definition. Remove once an image ships the fix.
+    volumes:
+      - ./patches/http_client.py:/lenses-mcp/src/lenses_mcp/clients/http_client.py:ro
+      - ./patches/kafka_connectors.py:/lenses-mcp/src/lenses_mcp/tools/kafka_connectors.py:ro
+    depends_on:
+      lenses-hq:
+        condition: service_healthy
+
+  # One Postgres for HQ and the agent (databases created by create-configs).
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: lenses
+      POSTGRES_PASSWORD: lenses
+    depends_on:
+      create-configs:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lenses"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-volume:/docker-entrypoint-initdb.d
+
+  # Writes the HQ config, the agent's config and the Postgres init script into
+  # the volumes the services above read them from.
+  create-configs:
+    image: busybox
+    command: >
+      sh -c '
+        printenv hq.config.yaml > /hq/config.yaml;
+        printenv agent-prod.lenses.conf > /agent-prod/lenses.conf;
+        printenv agent-prod.provisioning.yaml > /agent-prod/provisioning.yaml;
+        printenv postgres.init.sql > /postgres/init.sql
+      '
+    environment:
+      hq.config.yaml: |
+        http:
+          address: :9991
+          secureSessionCookies: false
+        auth:
+          administrators:
+            - admin
+          users:
+           - username: admin
+             # Password is admin
+             password: $$2a$$10$$DPQYpxj4Y2iTWeuF1n.ItewXnbYXh5/E9lQwDJ/cI/.gBboW2Hodm
+          oauth2:
+            authorizationServer:
+              enabled: true
+              # Must match the HQ URL the browser uses during the OAuth flow.
+              issuerURL: http://localhost:${HOST_PORT_HQ:-9991}
+              dcr: true
+              unauthenticatedIntrospection: true
+        agents:
+          address: :10000
+        database:
+          host: postgres:5432
+          username: lenses
+          password: lenses
+          database: hq
+        audit:
+          enabled: true
+        logger:
+          mode: text
+        license:
+          # Set LENSES_LICENSE_KEY to use your own; the fallback is the
+          # Community Edition key from Lenses' public demo setup.
+          key: ${LENSES_LICENSE_KEY:-license_key_xn7DpHCzSuNd2imwxWCVB1BSgg2oN4mpnzkuU3DZCusGSpHrROq37BjDxoGnYayRhHTwDkgyItirTwtPVvoBBQjEkYz-BhABGhBgVxHfz8AWVJQAyV82W_KpIgIIASoICAEQARgBIAE}
+          acceptEULA: ${ACCEPT_EULA}
+
+      agent-prod.lenses.conf: |
+        lenses.storage.postgres.host="postgres"
+        lenses.storage.postgres.port=5432
+        lenses.storage.postgres.database=agent_prod
+        lenses.storage.postgres.username=lenses
+        lenses.storage.postgres.password=lenses
+        lenses.provisioning.path="/mnt/settings"
+        lenses.sql.state.dir="/data/lsql-state-dir"
+        lenses.secret.file="/data/security.conf"
+        lenses.storage.directory="/data/lenses"
+      agent-prod.provisioning.yaml: |
+        lensesHq:
+          - name: lenses-hq
+            tags: ['hq']
+            version: 1
+            configuration:
+              agentKey:
+                value: $${LENSESHQ_AGENT_KEY}
+              port:
+                value: 10000
+              server:
+                value: lenses-hq
+        kafka:
+          - name: kafka
+            version: 1
+            tags: ['kafka', 'cards-prod-euw1']
+            configuration:
+              metricsType:
+                value: JMX
+              metricsPort:
+                value: 9581
+              kafkaBootstrapServers:
+                value: [PLAINTEXT://demo-kafka-prod:19092]
+              protocol:
+                value: PLAINTEXT
+        confluentSchemaRegistry:
+          - name: schema-registry
+            version: 1
+            tags: ['cards-prod-euw1']
+            configuration:
+              schemaRegistryUrls:
+                value: [http://demo-kafka-prod:8081]
+              metricsType:
+                value: JMX
+              metricsPort:
+                value: 9582
+        connect:
+          - name: connect
+            version: 1
+            tags: ['cards-prod-euw1']
+            configuration:
+              workers:
+                value: [http://demo-kafka-prod:8083]
+              aes256Key:
+                value: 0123456789abcdef0123456789abcdef
+              metricsType:
+                value: JMX
+              metricsPort:
+                value: 9584
+
+      postgres.init.sql: |
+        CREATE DATABASE hq;
+        CREATE DATABASE agent_prod;
+    volumes:
+      - lenses-hq-volume:/hq
+      - lenses-agent-prod-settings:/agent-prod
+      - postgres-volume:/postgres
+
+  # ===========================================================================
+  # Kafka: one single-broker cluster and the workloads the incidents break
+  # ===========================================================================
+
+  # fast-data-dev bundles a broker, Schema Registry and Kafka Connect (with the
+  # Stream Reactor connectors). The image adds kafka-connect-datagen, which
+  # produces the baseline card-authorisation traffic.
+  # In-network: broker demo-kafka-prod:19092, SR :8081, Connect :8083.
+  demo-kafka-prod:
+    build:
+      context: ../..
+      dockerfile: harness/stack/fast-data-dev.Dockerfile
+    image: dss26-fast-data-dev:3.9.0
+    hostname: demo-kafka-prod
+    container_name: demo-kafka-prod
+    environment:
+      ADV_HOST: demo-kafka-prod
+      RUNNING_SAMPLEDATA: 0
+      RUNTESTS: 0
+      KAFKA_LISTENERS: PLAINTEXT://:9092,DOCKERCOMPOSE://:19092,CONTROLLER://:16062
+      # Advertise the container hostname so in-container clients (Schema
+      # Registry, Connect) can follow the listener back to the broker.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://demo-kafka-prod:9092,DOCKERCOMPOSE://demo-kafka-prod:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
+        DOCKERCOMPOSE:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,
+        SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+      DISABLE: debezium-mongodb,debezium-mysql,debezium-postgres,debezium-sqlserver,debezium-jdbc
+    ports:
+      - ${HOST_PORT_KAFKA_PROD:-9092}:9092   # broker
+      - ${HOST_PORT_SR_PROD:-8081}:8081      # Schema Registry
+      - ${HOST_PORT_CONNECT_PROD:-8093}:8083 # Kafka Connect
+    volumes:
+      # The image declares VOLUME /data; without a named volume every
+      # recreation orphans an anonymous one holding GBs of log segments.
+      - kafka-prod-data:/data
+
+  # The consumer the consumer-lag incident wedges. It reads
+  # cards.authorisation.requested.v1 with the v1 reader schema and writes a
+  # posting to cards.ledger.posted.v1 per scored authorisation. When
+  # `make induce` registers an incompatible v2 schema, it stalls on the
+  # first v2 record: lag grows and ledger postings stop.
+  fraud-decisioning-engine:
+    build:
+      context: ./fraud_scoring
+    container_name: fraud-decisioning-engine
+    depends_on:
+      - demo-kafka-prod
+    environment:
+      BOOTSTRAP: demo-kafka-prod:9092
+      SCHEMA_REGISTRY_URL: http://demo-kafka-prod:8081
+      READER_SCHEMA_PATH: /etc/schemas/cards_authorisation_requested_v1.avsc
+      LEDGER_SCHEMA_PATH: /etc/schemas/cards_ledger_posted_v1.avsc
+      CONSUMER_GROUP: fraud-decisioning-engine
+      TOPIC: cards.authorisation.requested.v1
+      LEDGER_TOPIC: cards.ledger.posted.v1
+    volumes:
+      - ./schemas:/etc/schemas:ro
+    restart: unless-stopped
+
+  # Creates the topic catalogue and Avro schemas, applies HQ descriptions and
+  # tags and starts the datagen producer. Idempotent; runs on every `up` and
+  # exits. Mounts the Docker socket for the steps that `docker exec` into the
+  # broker (see harness/stack/seeder.Dockerfile).
+  seeder:
+    build:
+      context: ../..
+      dockerfile: harness/stack/seeder.Dockerfile
+    environment:
+      SCHEMA_REGISTRY_PROD: http://demo-kafka-prod:8081
+      CONNECT_PROD_URL: http://demo-kafka-prod:8083
+      LENSES_HQ_URL: http://lenses-hq:9991
+      DEMO_HQ_USER: ${DEMO_HQ_USER:-admin}
+      DEMO_HQ_PASSWORD: ${DEMO_HQ_PASSWORD:-admin}
+      DATASET_WAIT_SECONDS: ${DATASET_WAIT_SECONDS:-120}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      demo-kafka-prod:
+        condition: service_started
+      lenses-hq:
+        condition: service_healthy
+    restart: "no"
+
+  # ===========================================================================
+  # The agent: LLM gateway, agent server, dashboard
+  # ===========================================================================
+
+  # LiteLLM: one OpenAI-compatible endpoint for all model traffic. The agent
+  # names a model alias; agent/gateway/litellm.yaml maps it to a provider model.
+  llm-gateway:
+    image: ghcr.io/berriai/litellm:v1.85.7
+    pull_policy: missing
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    ports:
+      - ${HOST_PORT_LLM_GATEWAY:-4000}:4000
+    volumes:
+      # A file at /app/config.yaml, not a directory at /app/litellm: that path
+      # is the litellm package's own source tree inside the image.
+      - ../../agent/gateway/litellm.yaml:/app/config.yaml:ro
+    environment:
+      # ANTHROPIC_API_KEY backs the default `claude` aliases. The others are
+      # only needed if you route a role to a mistral-* or gpt alias.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-kafka-sre-demo}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # The FastAPI server (SSE to the dashboard) plus the PagerDuty / GitHub /
+  # Confluence / Slack MCP servers, which run as its child processes over
+  # stdio. Lenses MCP and the gateway are reached over the compose network.
+  agent-server:
+    build:
+      context: ../..
+      dockerfile: agent/Dockerfile
+    ports:
+      - ${HOST_PORT_AGENT:-8765}:8765
+    environment:
+      LLM_GATEWAY_URL: http://llm-gateway:4000/v1
+      LLM_GATEWAY_API_KEY: ${LITELLM_MASTER_KEY:-sk-kafka-sre-demo}
+      # Default alias per role for runs that don't name one (the dashboard
+      # always sends its own choice).
+      SUPERVISOR_MODEL: ${SUPERVISOR_MODEL:-claude}
+      TRIAGE_MODEL: ${TRIAGE_MODEL:-claude}
+      DIAGNOSIS_MODEL: ${DIAGNOSIS_MODEL:-claude}
+      FORENSICS_MODEL: ${FORENSICS_MODEL:-claude}
+      REPORTER_MODEL: ${REPORTER_MODEL:-claude}
+      FORENSICS_TOOL_BUDGET: ${FORENSICS_TOOL_BUDGET:-14}
+      # stub (bundled fixtures, no credentials) or live, per integration.
+      # See docs/going-live.md for each one's credentials.
+      PAGERDUTY_MODE: ${PAGERDUTY_MODE:-stub}
+      GITHUB_MODE: ${GITHUB_MODE:-stub}
+      CONFLUENCE_MODE: ${CONFLUENCE_MODE:-stub}
+      SLACK_MODE: ${SLACK_MODE:-stub}
+      PAGERDUTY_API_KEY: ${PAGERDUTY_API_KEY:-}
+      PAGERDUTY_SERVICE_IDS: ${PAGERDUTY_SERVICE_IDS:-}
+      PAGERDUTY_API_URL: ${PAGERDUTY_API_URL:-https://api.pagerduty.com}
+      PAGERDUTY_MCP_URL: ${PAGERDUTY_MCP_URL:-https://mcp.pagerduty.com/mcp}
+      PAGERDUTY_POLL_S: ${PAGERDUTY_POLL_S:-5}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_API_URL: ${GITHUB_API_URL:-https://api.github.com}
+      GITHUB_ORG: ${GITHUB_ORG:-dss26-org}
+      # Confluence and Slack write where people will see it, so both stay in
+      # dry run until you disarm them explicitly.
+      CONFLUENCE_BASE_URL: ${CONFLUENCE_BASE_URL:-}
+      CONFLUENCE_EMAIL: ${CONFLUENCE_EMAIL:-}
+      CONFLUENCE_API_TOKEN: ${CONFLUENCE_API_TOKEN:-}
+      CONFLUENCE_SPACE: ${CONFLUENCE_SPACE:-}
+      CONFLUENCE_PARENT_PAGE_ID: ${CONFLUENCE_PARENT_PAGE_ID:-}
+      CONFLUENCE_DRY_RUN: ${CONFLUENCE_DRY_RUN:-true}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_DRY_RUN: ${SLACK_DRY_RUN:-true}
+      SLACK_DEFAULT_CHANNEL: ${SLACK_DEFAULT_CHANNEL:-}
+      SLACK_CHANNEL_ALLOWLIST: ${SLACK_CHANNEL_ALLOWLIST:-}
+      SLACK_DEDUPE_TTL_S: ${SLACK_DEDUPE_TTL_S:-86400}
+      # On the volume, so a retry after a restart is still deduplicated.
+      SLACK_LEDGER_PATH: /data/slack_sent.json
+      # Tracing. Spans name the model and vendor behind each gateway alias,
+      # from agent/gateway/litellm.yaml (see agent/tracing.py).
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:6006
+      PHOENIX_PROJECT_NAME: ${PHOENIX_PROJECT_NAME:-kafka-sre-agent}
+      # Lenses OAuth from inside a container: the agent uses the localhost URLs
+      # the browser sees, and LENSES_INTERNAL_REMAP retargets its server-side
+      # calls (client registration, token, MCP transport) to the in-network
+      # services. The remap's source ports must track HOST_PORT_HQ/HOST_PORT_MCP.
+      LENSES_MCP_URL: http://localhost:${HOST_PORT_MCP:-8000}
+      LENSES_HQ_URL: http://lenses-hq:9991
+      LENSES_INTERNAL_REMAP: "localhost:${HOST_PORT_HQ:-9991}=lenses-hq:9991,127.0.0.1:${HOST_PORT_HQ:-9991}=lenses-hq:9991,localhost:${HOST_PORT_MCP:-8000}=lenses-mcp:8000,127.0.0.1:${HOST_PORT_MCP:-8000}=lenses-mcp:8000"
+      LENSES_OAUTH_CALLBACK_HOST: 0.0.0.0
+      AGENT_CORS_ORIGINS: "http://localhost:${HOST_PORT_UI:-8080},http://127.0.0.1:${HOST_PORT_UI:-8080}"
+    env_file:
+      - path: sa-credentials.conf
+        required: false
+    volumes:
+      # OAuth token cache and run history.
+      - agent-data:/data
+    depends_on:
+      lenses-mcp:
+        condition: service_started
+      llm-gateway:
+        condition: service_started
+    restart: unless-stopped
+
+  # The React dashboard, built and served by nginx. VITE_AGENT_BASE is baked
+  # in at build time and points the browser at the agent's published port.
+  ui:
+    build:
+      context: ../..
+      dockerfile: ui/Dockerfile
+      args:
+        VITE_AGENT_BASE: http://localhost:${HOST_PORT_AGENT:-8765}
+    ports:
+      - ${HOST_PORT_UI:-8080}:80
+    depends_on:
+      agent-server:
+        condition: service_started
+    restart: unless-stopped
+
+  # Self-hosted trace backend: no credentials, no egress. UI at :6006.
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - ${HOST_PORT_PHOENIX:-6006}:6006
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenix-data:/data
+    restart: unless-stopped
+
+volumes:
+  lenses-hq-volume:
+  lenses-agent-prod-settings:
+  postgres-volume:
+  agent-data:
+  kafka-prod-data:
+  phoenix-data:

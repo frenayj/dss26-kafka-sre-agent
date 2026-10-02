@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "kafka-connector-review": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-connector-review/SKILL.md",
+      "computedHash": "9aca188dd78394b0b31529dbeaf409236b469d98685c37ed512e05e43fadfaa3"
+    },
+    "kafka-consumer-lag": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-consumer-lag/SKILL.md",
+      "computedHash": "0a00cee84c6ea68fbb8e3de938e9b1276607709a5da59b51574dcde9b2f1e65a"
+    },
+    "kafka-dlq-review": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-dlq-review/SKILL.md",
+      "computedHash": "dae3991d67a3b50874d7acb9ca3dcbb1aec603a71ab96d72871f849542d148dc"
+    },
+    "kafka-perf-review": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-perf-review/SKILL.md",
+      "computedHash": "d7c90fc5ce98fa1d6ea1b718cb7113034f7eed8621ad1079b9867e7c7fc3d4ba"
+    },
+    "kafka-schema-review": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-schema-review/SKILL.md",
+      "computedHash": "abbef3df9a43046e422c54b5424713dd3c0da60fa6b6e9d4fe3fdfb569b5e7c7"
+    },
+    "kafka-security-audit": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-security-audit/SKILL.md",
+      "computedHash": "694e7c746749bb493dd4ff4a4d41401dcad9323f24fad5c4a4c622867623c07b"
+    },
+    "kafka-topic-audit": {
+      "source": "lensesio/agentic-engineering-for-apache-kafka",
+      "sourceType": "github",
+      "skillPath": "skills/kafka-topic-audit/SKILL.md",
+      "computedHash": "49d625d78144a32fa736d56e878455785ff0ba098a50dcae3aeb61ae7e8ada6c"
+    }
+  }
+}

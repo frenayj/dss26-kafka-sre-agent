@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: disputes-svc
+  datasource:
+    url: ${DISPUTES_DB_URL}
+    username: ${DISPUTES_DB_USER}
+    password: ${DISPUTES_DB_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL}
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    producer:
+      client-id: disputes-svc
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        enable.idempotence: true
+        linger.ms: 5
+        # Subjects are registered from this repo's src/main/avro by CI, never at runtime.
+        auto.register.schemas: false
+        use.latest.version: true
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        specific.avro.reader: true
+        max.poll.interval.ms: 300000
+    listener:
+      ack-mode: record
+
+disputes:
+  search:
+    url: ${DISPUTES_SEARCH_URL:https://disputes-search.prod.dss26.internal:9200}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

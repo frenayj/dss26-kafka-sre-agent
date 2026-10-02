@@ -1,0 +1,250 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./typeset.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Design tokens - stock shadcn "neutral" base (oklch), light default with a
+   `.dark` override. Custom additions on top of stock: severity tokens
+   (success / warning / info) and six per-sub-agent accents. */
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  --warning: oklch(0.723 0.152 64.221);
+  --warning-foreground: oklch(0.985 0 0);
+  --info: oklch(0.616 0.052 207.637);
+  --info-foreground: oklch(0.985 0 0);
+  --success: oklch(0.555 0.162 147.643);
+  --success-foreground: oklch(0.985 0 0);
+
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Brand colours of the services the sub-agents drive (src/components/
+     icons/brands.tsx). GitHub's black mark flips to near-white in dark
+     mode. */
+  --brand-pagerduty: #06ac38;
+  --brand-github: #1b1f23;
+  --brand-confluence: #0052cc;
+
+  /* Per-source accents for sub-agents (UI-only - keyed by source name).
+     Triage / reporter take the brand of the service they own, diagnosis
+     the Lenses orange; the var() refs resolve per theme because .dark sits
+     on <html>. */
+  --agent-supervisor: oklch(0.535 0.099 207.232);
+  --agent-triage: var(--brand-pagerduty);
+  --agent-diagnosis: var(--lenses-brand);
+  --agent-forensics: oklch(0.502 0.197 305.504);
+  --agent-reporter: var(--brand-confluence);
+  --agent-skills: oklch(0.613 0.165 91.167);
+
+  /* Lenses brand coral-orange - marks the Lenses deployment span in the
+     architecture explainer (MCP, HQ, the cluster's Lenses agent). */
+  --lenses-brand: oklch(0.66 0.2 38);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  --warning: oklch(0.833 0.145 91.167);
+  --warning-foreground: oklch(0.205 0 0);
+  --info: oklch(0.755 0.079 207.232);
+  --info-foreground: oklch(0.205 0 0);
+  --success: oklch(0.739 0.184 152.013);
+  --success-foreground: oklch(0.205 0 0);
+
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
+  --brand-github: #f0f6fc;
+  --brand-confluence: #2684ff;
+
+  /* triage / reporter follow --brand-* above, diagnosis --lenses-brand. */
+  --agent-supervisor: oklch(0.755 0.079 207.232);
+  --agent-forensics: oklch(0.722 0.177 305.504);
+  --agent-skills: oklch(0.833 0.145 91.167);
+
+  --lenses-brand: oklch(0.75 0.18 40);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-agent-supervisor: var(--agent-supervisor);
+  --color-agent-triage: var(--agent-triage);
+  --color-agent-diagnosis: var(--agent-diagnosis);
+  --color-agent-forensics: var(--agent-forensics);
+  --color-agent-reporter: var(--agent-reporter);
+  --color-agent-skills: var(--agent-skills);
+
+  --color-brand-pagerduty: var(--brand-pagerduty);
+  --color-brand-github: var(--brand-github);
+  --color-brand-confluence: var(--brand-confluence);
+  --color-lenses-brand: var(--lenses-brand);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Typeset presets (see src/typeset.css - one CSS file we own).
+   `typeset-chat` is the reading rhythm for the live activity stream and all
+   markdown tool results: chat-tight flow, relaxed leading. */
+.typeset-chat {
+  --typeset-font-body: var(--font-sans);
+  --typeset-font-heading: var(--font-sans);
+  --typeset-font-mono: var(--font-mono);
+  --typeset-size: 14px;
+  --typeset-leading: 1.65;
+  --typeset-flow: 1em;
+}
+
+/* Thin overlay-style scrollbar for scrollable code / table panes. */
+.mac-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.mac-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mac-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+.mac-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Animations (entrance/exit transitions come from tw-animate-css) */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* A pager going off: a burst of shakes about its top, then a pause. */
+@keyframes bell-ring {
+  0%, 45%, 100% { transform: rotate(0); }
+  5% { transform: rotate(16deg); }
+  10% { transform: rotate(-14deg); }
+  15% { transform: rotate(12deg); }
+  20% { transform: rotate(-10deg); }
+  25% { transform: rotate(7deg); }
+  30% { transform: rotate(-5deg); }
+  35% { transform: rotate(3deg); }
+  40% { transform: rotate(-1deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-bell-ring {
+    animation: bell-ring 1.6s ease-in-out infinite;
+    transform-origin: 50% 15%;
+  }
+}

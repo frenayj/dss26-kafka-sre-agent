@@ -1,0 +1,27 @@
+name: Avro schema compatibility
+description: >-
+  Checks that each <subject>=<path> Avro schema in the working tree is
+  BACKWARD compatible with its version at base-ref, using a Schema Registry.
+  Used by the schema-compat reusable workflow.
+inputs:
+  schemas:
+    description: Newline-separated <subject>=<path> pairs, paths relative to the repository root.
+    required: true
+  base-ref:
+    description: Git revision with the base versions. Empty or all zeros skips the check.
+    required: false
+    default: ""
+  registry-url:
+    description: Schema Registry to register the base versions in. Must be a throwaway one.
+    required: false
+    default: http://localhost:8081
+runs:
+  using: composite
+  steps:
+    - name: Check compatibility
+      shell: bash
+      env:
+        SCHEMAS: ${{ inputs.schemas }}
+        BASE_REF: ${{ inputs.base-ref }}
+        SCHEMA_REGISTRY_URL: ${{ inputs.registry-url }}
+      run: python3 "$GITHUB_ACTION_PATH/schema_compat.py"

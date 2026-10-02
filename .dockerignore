@@ -1,0 +1,29 @@
+# Keep the build context small and secret-free. Every image builds from the
+# repo root (agent, ui, seeder, fast-data-dev).
+.git
+.gitignore
+
+# Secrets - compose injects configuration at runtime.
+.env
+.env.*
+*.env
+!.env.sample
+ports.parallel
+harness/stack/sa-credentials.conf
+
+# Python
+.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+
+# Node
+ui/node_modules
+ui/dist
+
+# Local state
+**/logs
+tmp
+.claude
+.kilo

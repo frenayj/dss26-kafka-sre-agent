@@ -1,0 +1,27 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: merchant-gateway
+  title: Merchant gateway
+  description: Merchant and acquirer edge - accepts card authorisation requests over REST and publishes cards.authorisation.requested.v1.
+  annotations:
+    github.com/project-slug: dss26-org/merchant-gateway
+    backstage.io/techdocs-ref: dir:.
+    pagerduty.com/service-id: PSVC17D
+    dss26.bank/kafka-produces: cards.authorisation.requested.v1
+    dss26.bank/schema-subjects: cards.authorisation.requested.v1-value
+  tags: [java, spring-boot, kafka, avro, tier-1]
+  links:
+    - url: https://landoop.atlassian.net/wiki/spaces/DSS26/pages/3979935766/Service+merchant-gateway
+      title: Service page
+    - url: https://landoop.atlassian.net/wiki/spaces/DSS26/pages/3980034049/ADR-0007+Avro+and+Schema+Registry+for+card+events
+      title: ADR-0007 - Avro and Schema Registry for card events
+    - url: https://dss26.pagerduty.com/service-directory/PSVC17D
+      title: PagerDuty - merchant-gateway
+spec:
+  type: service
+  lifecycle: production
+  owner: group:payments-edge
+  system: cards-authorisation
+  providesApis:
+    - merchant-authorisation-api

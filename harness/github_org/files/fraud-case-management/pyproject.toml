@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fraud-case-management"
+version = "3.4.0"
+description = "Opens and tracks fraud investigation cases from fraud scores and cardholder reports."
+requires-python = ">=3.12"
+dependencies = [
+    "confluent-kafka[avro,schemaregistry]==2.10.0",
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "psycopg[binary,pool]==3.2.3",
+    "httpx==0.28.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4", "ruff==0.8.4"]
+
+[project.scripts]
+fraud-cases-consumer = "fraud_cases.consumer:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fraud_cases"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"

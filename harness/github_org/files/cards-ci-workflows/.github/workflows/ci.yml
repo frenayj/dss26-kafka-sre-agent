@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -v
+
+  # The same tests again, this time with a real Schema Registry so the
+  # registry calls are exercised the way the callers' CI exercises them.
+  registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      kafka:
+        image: confluentinc/cp-kafka:7.9.1
+        env:
+          CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://localhost:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      schema-registry:
+        image: confluentinc/cp-schema-registry:7.9.1
+        ports:
+          - 8081:8081
+        env:
+          SCHEMA_REGISTRY_HOST_NAME: schema-registry
+          SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+          SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+        options: >-
+          --health-cmd "curl -fsS http://localhost:8081/subjects"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tests against Schema Registry
+        env:
+          SCHEMA_REGISTRY_URL: http://localhost:8081
+        run: python3 -m unittest discover -s tests -v

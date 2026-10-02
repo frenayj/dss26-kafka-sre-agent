@@ -1,0 +1,4 @@
+# Labels of the self-hosted runners inside the cards network (apply.yml).
+self-hosted-runner:
+  labels:
+    - cards-kafka-admin

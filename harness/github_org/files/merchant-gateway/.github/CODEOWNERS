@@ -1,0 +1,5 @@
+# Payments Edge owns the gateway end to end.
+*                     @dss26-org/payments-edge
+
+# Release and CI pipelines: Platform Engineering reviews runner and secret use.
+/.github/workflows/   @dss26-org/payments-edge @dss26-org/platform-engineering

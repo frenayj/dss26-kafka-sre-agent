@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: merchant-gateway
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+    producer:
+      client-id: merchant-gateway
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      compression-type: lz4
+      properties:
+        enable.idempotence: true
+        linger.ms: 5
+        delivery.timeout.ms: 30000
+        # Schemas are registered by the release pipeline (pom.xml,
+        # kafka-schema-registry-maven-plugin). The gateway only looks them up
+        # and writes with the subject's latest version.
+        auto.register.schemas: false
+        use.latest.version: true
+
+gateway:
+  topic: cards.authorisation.requested.v1
+  send-timeout: 2s
+  idempotency-ttl: 24h
+  tier: ${GATEWAY_TIER:prod}
+  rate-limit:
+    per-second: ${GATEWAY_RATE_LIMIT_PER_SECOND:200}
+    burst: ${GATEWAY_RATE_LIMIT_BURST:400}
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

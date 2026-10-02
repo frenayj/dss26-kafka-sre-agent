@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "ClearingMatched",
+  "namespace": "com.dss26.cards.events",
+  "doc": "Clearing record matched back to its originating authorisation.",
+  "fields": [
+    {"name": "clearing_id", "type": "string", "doc": "Network clearing record identifier."},
+    {"name": "auth_id", "type": "string", "doc": "Joins back to the authorisation."},
+    {"name": "cleared_amount", "type": "double", "doc": "Cleared amount in major units."},
+    {"name": "currency", "type": "string", "doc": "ISO-4217 currency code.", "default": "EUR"},
+    {"name": "network", "type": {"type": "enum", "name": "CardNetwork", "symbols": ["VISA", "MASTERCARD"]}, "doc": "Card scheme."},
+    {"name": "matched_at", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "Match timestamp, epoch millis."}
+  ]
+}

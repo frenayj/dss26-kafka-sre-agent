@@ -1,0 +1,22 @@
+# Alternative host ports, to run this stack next to another Lenses/Kafka
+# stack that already holds 9092 / 8081 / 8093 / 9991 / 8000 / 6006.
+#
+# Opt in by copying this file to `ports.parallel`; delete that copy to opt out.
+#
+# Its presence activates it everywhere: the Makefile passes it to compose as a
+# second --env-file and exports it to the scripts, the shell scripts source
+# it, and agent/config.py loads it over the env file. Only host-side ports
+# change; in-network names and ports stay the same. No secrets belong here.
+
+# Host ports (defaults are in harness/stack/docker-compose.yml)
+HOST_PORT_KAFKA_PROD=19092
+HOST_PORT_SR_PROD=18081
+HOST_PORT_CONNECT_PROD=18093
+HOST_PORT_HQ=19991
+HOST_PORT_MCP=18000
+HOST_PORT_PHOENIX=16006
+
+# URLs that must track the ports above
+LENSES_HQ_URL=http://localhost:19991
+LENSES_MCP_URL=http://localhost:18000
+SCHEMA_REGISTRY_PROD=http://localhost:18081

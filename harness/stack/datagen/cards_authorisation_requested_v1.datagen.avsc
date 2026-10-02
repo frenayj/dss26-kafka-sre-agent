@@ -1,0 +1,69 @@
+{
+  "type": "record",
+  "name": "CardAuthEvent",
+  "namespace": "com.dss26.payments",
+  "doc": "Card authorization event - kafka-connect-datagen generation template, baked into the broker image by harness/stack/fast-data-dev.Dockerfile. Field STRUCTURE is identical to harness/stack/schemas/cards_authorisation_requested_v1.avsc; the extra `arg.properties` (nested inside each field's type, where avro-random-generator looks for them) only drive record generation and are ignored by Avro itself. NOTE: the connector MUST load this via `schema.filename` - the `schema.string` path strips arg.properties off primitive types. The connector serializes against the pre-registered canonical schema id (harness/seed/seed_datagen.py), so the topic carries the exact CardAuthEvent schema. Distributions are uniform (the generator has no weighting). `ts` is a fixed window (the generator has no \"now\"); the broker record CreateTime is real wall-clock, which is what lag/age diagnostics use.",
+  "fields": [
+    {
+      "name": "auth_id",
+      "type": { "type": "string", "arg.properties": { "regex": "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}" } }
+    },
+    {
+      "name": "card_token",
+      "type": { "type": "string", "arg.properties": { "regex": "tok_[1-9][0-9]{5}" } }
+    },
+    {
+      "name": "merchant_id",
+      "type": {
+        "type": "string",
+        "arg.properties": {
+          "options": [
+            "mch_lumen_coffee", "mch_halcyon_retail", "mch_brightline_saas",
+            "mch_umbrella_pharma", "mch_stark_industries", "mch_wayne_enterprises",
+            "mch_hooli_cloud", "mch_dunder_mifflin", "mch_pied_piper", "mch_cyberdyne"
+          ]
+        }
+      }
+    },
+    {
+      "name": "amount",
+      "type": { "type": "double", "arg.properties": { "range": { "min": 1.0, "max": 250.0 } } }
+    },
+    {
+      "name": "currency",
+      "type": { "type": "string", "arg.properties": { "options": ["USD", "EUR", "GBP", "JPY", "CAD"] } },
+      "default": "USD"
+    },
+    {
+      "name": "country",
+      "type": { "type": "string", "arg.properties": { "options": ["US", "GB", "DE", "FR", "JP", "CA"] } },
+      "default": "US"
+    },
+    {
+      "name": "ts",
+      "type": { "type": "long", "logicalType": "timestamp-millis", "arg.properties": { "range": { "min": 1767225600000, "max": 1798761600000 } } }
+    },
+    {
+      "name": "risk_signals",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "arg.properties": { "options": ["VELOCITY_OK", "GEO_MISMATCH", "NEW_DEVICE", "VELOCITY_HIGH"] }
+        },
+        "arg.properties": { "length": { "min": 0, "max": 2 } }
+      },
+      "default": []
+    },
+    {
+      "name": "channel",
+      "type": { "type": "string", "arg.properties": { "options": ["CARD_PRESENT", "ECOM", "RECURRING", "MOTO"] } },
+      "default": "ECOM"
+    },
+    {
+      "name": "tier",
+      "type": { "type": "string", "arg.properties": { "options": ["cards-prod-euw1"] } },
+      "default": "prod"
+    }
+  ]
+}

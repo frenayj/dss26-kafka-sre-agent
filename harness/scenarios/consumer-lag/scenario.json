@@ -1,0 +1,5 @@
+{
+  "title": "Consumer lag",
+  "summary": "A merchant-gateway PR registers an incompatible schema. The fraud-decisioning consumer wedges on the first new record, lag grows and ledger postings stop.",
+  "page_delay_s": 45
+}

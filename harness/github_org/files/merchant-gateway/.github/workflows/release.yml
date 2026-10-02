@@ -1,0 +1,69 @@
+name: release
+
+# Every merge to main is a production release:
+#   1. package the service
+#   2. apply the subject's compatibility level from pom.xml (set-compatibility)
+#   3. register src/main/avro/cards.authorisation.requested.v1.avsc (register)
+#   4. build the image and roll it out
+# Steps 2-4 need the cards Schema Registry and cluster, so they only run where
+# the release variables are configured for the repository.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SCHEMA_REGISTRY_URL: ${{ vars.SCHEMA_REGISTRY_URL }}
+  IMAGE: ${{ vars.IMAGE_REGISTRY }}/payments-edge/merchant-gateway
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Package
+        run: mvn -B -DskipTests package
+
+      - name: Set subject compatibility
+        if: vars.SCHEMA_REGISTRY_URL != ''
+        run: mvn -B -Dschema.registry.url="$SCHEMA_REGISTRY_URL" io.confluent:kafka-schema-registry-maven-plugin:set-compatibility
+
+      - name: Register schema
+        if: vars.SCHEMA_REGISTRY_URL != ''
+        run: mvn -B -Dschema.registry.url="$SCHEMA_REGISTRY_URL" io.confluent:kafka-schema-registry-maven-plugin:register
+
+      - name: Build and push image
+        if: vars.SCHEMA_REGISTRY_URL != ''
+        env:
+          REGISTRY: ${{ vars.IMAGE_REGISTRY }}
+          REGISTRY_USER: ${{ secrets.IMAGE_REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.IMAGE_REGISTRY_TOKEN }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          docker build -t "$IMAGE:${GITHUB_SHA::12}" .
+          docker push "$IMAGE:${GITHUB_SHA::12}"
+
+      - name: Deploy
+        if: vars.SCHEMA_REGISTRY_URL != ''
+        env:
+          ARGOCD_SERVER: ${{ vars.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          argocd app set merchant-gateway-prod --kustomize-image "merchant-gateway=$IMAGE:${GITHUB_SHA::12}"
+          argocd app sync merchant-gateway-prod --timeout 600
+          argocd app wait merchant-gateway-prod --health --timeout 600

@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build and test
+        run: mvn -B -ntp verify
+
+  # Shared check from cards-ci-workflows (action item of INC-2024-09-12-003).
+  # Ledger journal schema is owned by Cards Platform and checked in their repo.
+  schema-compat:
+    uses: dss26-org/cards-ci-workflows/.github/workflows/schema-compat.yml@main
+    with:
+      schemas: |
+        cards.clearing.received.v1-value=src/main/avro/cards.clearing.received.v1.avsc
+        cards.clearing.matched.v1-value=src/main/avro/cards.clearing.matched.v1.avsc
+        cards.interchange.fee.calculated.v1-value=src/main/avro/cards.interchange.fee.calculated.v1.avsc
+        cards.settlement.batch.posted.v1-value=src/main/avro/cards.settlement.batch.posted.v1.avsc

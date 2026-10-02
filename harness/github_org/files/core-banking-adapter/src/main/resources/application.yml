@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: core-banking-adapter
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL}
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 50
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        specific.avro.reader: true
+        # A GL posting can wait on the core during the batch window.
+        max.poll.interval.ms: 900000
+    listener:
+      ack-mode: record
+
+ibm:
+  mq:
+    queue-manager: DSS26CORE1
+    channel: DSS26.ADAPTER.SVRCONN
+    # Multi-instance queue manager: the client reconnects to whichever is active.
+    conn-name: ${MQ_CONN_NAME:mqcore-a.core.dss26.internal(1414),mqcore-b.core.dss26.internal(1414)}
+    user: ${MQ_USER}
+    password: ${MQ_PASSWORD}
+    ssl-cipher-spec: TLS_AES_256_GCM_SHA384
+    client-reconnect-options: QMGR
+    reconnect-timeout: 1800

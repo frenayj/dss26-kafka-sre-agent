@@ -1,0 +1,36 @@
+{
+  "index_patterns": ["cards.chargeback.*"],
+  "priority": 200,
+  "_meta": {
+    "owner": "cards-servicing",
+    "writer": "sink-elastic-disputes-search (Cards Platform)",
+    "source": "dss26-org/disputes-svc search/index-template.json"
+  },
+  "template": {
+    "aliases": {
+      "disputes-search": {}
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "refresh_interval": "5s"
+    },
+    "mappings": {
+      "dynamic": false,
+      "properties": {
+        "chargeback_id":    { "type": "keyword" },
+        "auth_id":          { "type": "keyword" },
+        "merchant_id":      { "type": "keyword" },
+        "disputed_amount":  { "type": "scaled_float", "scaling_factor": 100 },
+        "recovered_amount": { "type": "scaled_float", "scaling_factor": 100 },
+        "currency":         { "type": "keyword" },
+        "reason_code":      { "type": "keyword" },
+        "reason_category":  { "type": "keyword" },
+        "outcome":          { "type": "keyword" },
+        "resolution_days":  { "type": "integer" },
+        "opened_at":        { "type": "date", "format": "epoch_millis" },
+        "resolved_at":      { "type": "date", "format": "epoch_millis" }
+      }
+    }
+  }
+}

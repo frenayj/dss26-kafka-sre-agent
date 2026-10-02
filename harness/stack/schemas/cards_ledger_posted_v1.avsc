@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "name": "LedgerPosting",
+  "namespace": "com.dss26.cards.ledger",
+  "doc": "Ledger posting emitted by the fraud-decisioning engine after a card-auth is scored. Downstream of cards.authorisation.requested.v1; consumed by the GL/posting service.",
+  "fields": [
+    {
+      "name": "posting_id",
+      "type": "string",
+      "doc": "Globally unique ledger posting ID (UUID)."
+    },
+    {
+      "name": "auth_id",
+      "type": "string",
+      "doc": "Source authorization ID - joins back to cards.authorisation.requested.v1."
+    },
+    {
+      "name": "merchant_id",
+      "type": "string",
+      "doc": "Acquirer-issued merchant identifier (carried from the auth)."
+    },
+    {
+      "name": "amount",
+      "type": "double",
+      "doc": "Authorization amount, major units, in transaction currency."
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO-4217 currency code.",
+      "default": "USD"
+    },
+    {
+      "name": "risk_score",
+      "type": "double",
+      "doc": "Fraud-decisioning engine score, 0.0 (low risk) to 1.0 (high risk)."
+    },
+    {
+      "name": "decision",
+      "type": "string",
+      "doc": "APPROVE | REVIEW | DECLINE - final decision from the fraud-decisioning engine.",
+      "default": "APPROVE"
+    },
+    {
+      "name": "ts",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Posting timestamp, epoch millis."
+    }
+  ]
+}

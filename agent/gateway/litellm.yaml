@@ -1,0 +1,89 @@
+# LiteLLM gateway - model routing for the Kafka SRE Agent.
+#
+# The agent only ever sends one of the `model_name` aliases below; which
+# provider model an alias maps to is decided here. Re-pointing a role is a
+# dropdown in the dashboard; adding a model is an entry in this file.
+#
+# Keys come from the gateway container's environment (the `llm-gateway`
+# service in harness/stack/docker-compose.yml). A model whose key is absent still
+# loads; calls to it fail with a provider auth error.
+#
+# The gateway emits no traces: the agent's own spans (agent/tracing.py)
+# already carry model, tokens and cost, and a second trace per call from the
+# gateway could not be joined to the agent's.
+
+model_list:
+  # The default for every role.
+  #
+  # Prompt caching: Anthropic only caches what a request marks, and the agent
+  # speaks OpenAI format, so the gateway adds the marks - one on the system
+  # prompt (which caches the tool definitions with it) and one on the latest
+  # message, so each turn of a sub-agent's loop re-reads the conversation so
+  # far from cache. Hits show up as cacheReadTokens in the run metrics.
+  - model_name: claude
+    litellm_params:
+      model: anthropic/claude-sonnet-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      cache_control_injection_points: &anthropic_cache
+        - location: message
+          role: system
+        - location: message
+          index: -1
+
+  # The newest Haiku. Priced by prompt length: a call whose prompt passes
+  # 100K tokens pays five times the rate (see ui/src/lib/models.ts).
+  - model_name: claude-haiku-5-5
+    litellm_params:
+      model: anthropic/claude-haiku-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      cache_control_injection_points: *anthropic_cache
+
+  # Faster and cheaper; fine for roles that mostly fetch and restate (triage).
+  - model_name: claude-haiku
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      cache_control_injection_points: *anthropic_cache
+
+  - model_name: mistral-medium
+    litellm_params:
+      # A dated snapshot rather than a rolling alias, so runs are reproducible.
+      model: mistral/mistral-medium-2604
+      api_key: os.environ/MISTRAL_API_KEY
+      temperature: 0.1
+      # Mistral rejects a turn whose tool results don't map one-to-one, in
+      # order, to the previous message's tool calls (error 3230). One call per
+      # turn makes that mapping trivially correct, at the cost of speed.
+      parallel_tool_calls: false
+      # A run fans out to four sub-agents and bursts past Mistral's free-tier
+      # rate limit. Raise this on a paid tier.
+      rpm: 30
+
+  - model_name: mistral-large
+    litellm_params:
+      model: mistral/mistral-large-latest
+      api_key: os.environ/MISTRAL_API_KEY
+      parallel_tool_calls: false  # see mistral-medium
+
+  - model_name: gpt
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+# One deployment per alias, so a cooldown would be a total outage: retry
+# generously and cool down briefly, to ride out 429s.
+router_settings:
+  num_retries: 5
+  retry_after: 10
+  allowed_fails: 20
+  cooldown_time: 15
+
+litellm_settings:
+  # Don't fail the whole proxy at boot when one provider's key is missing.
+  drop_params: true
+
+general_settings:
+  # Bounds the burst when the supervisor fans out to several sub-agents.
+  global_max_parallel_requests: 4
+  # Only callers that know the master key (the agent) may use the gateway.
+  master_key: os.environ/LITELLM_MASTER_KEY

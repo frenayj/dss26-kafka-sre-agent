@@ -1,0 +1,21 @@
+# fraud-scoring - production (kafka-dc1).
+
+replicaCount: 3
+
+image:
+  repository: harbor.dss26.internal/cards-platform/fraud-scoring
+  tag: ""
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: kafka-dc1-broker-01.dss26.internal:9092,kafka-dc1-broker-02.dss26.internal:9092,kafka-dc1-broker-03.dss26.internal:9092
+  CONSUMER_GROUP: fraud-scoring-consumer
+  INPUT_TOPIC: cards.authorisation.requested.v1
+  LEDGER_TOPIC: cards.ledger.posted.v1
+  LOG_LEVEL: INFO

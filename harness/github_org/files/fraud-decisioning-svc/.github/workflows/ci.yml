@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Unit tests
+        run: pytest
+
+  # INC-2024-09-12-003: every cards repo checks the schemas it produces
+  # against the registry before merge.
+  schema-compat:
+    uses: dss26-org/cards-ci-workflows/.github/workflows/schema-compat.yml@main
+    with:
+      schemas: |
+        cards.ledger.posted.v1-value=schemas/cards_ledger_posted_v1.avsc
+
+  image:
+    needs: test
+    # Harbor is only reachable from the bank's runners; elsewhere, skip the push.
+    if: github.event_name == 'push' && vars.HARBOR_REGISTRY != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: harbor.dss26.internal
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: harbor.dss26.internal/cards-platform/fraud-decisioning-svc:${{ github.sha }}

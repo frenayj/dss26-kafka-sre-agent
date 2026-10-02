@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: card-statements-batch
+  batch:
+    job:
+      name: ${STATEMENTS_JOB:monthlyStatementJob}
+    jdbc:
+      initialize-schema: never
+  datasource:
+    url: ${STATEMENTS_DB_URL}
+    username: ${STATEMENTS_DB_USER}
+    password: ${STATEMENTS_DB_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL}
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    producer:
+      client-id: card-statements-batch
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        enable.idempotence: true
+        auto.register.schemas: false
+        use.latest.version: true
+
+statements:
+  archive-bucket: ${STATEMENTS_ARCHIVE_BUCKET:dss26-document-archive-prod}
+  txn-history:
+    read-url: ${TXN_HISTORY_REPLICA_URL}
+    write-url: ${TXN_HISTORY_DB_URL}

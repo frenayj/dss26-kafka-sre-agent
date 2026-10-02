@@ -1,0 +1,86 @@
+name: schema-compat
+
+# Reusable workflow: fails a pull request whose Avro schema change is not
+# BACKWARD compatible with the version on the base branch. Every cards repo
+# that produces to a cards topic calls it - the action item from
+# INC-2024-09-12-003.
+#
+#   jobs:
+#     schema-compat:
+#       uses: dss26-org/cards-ci-workflows/.github/workflows/schema-compat.yml@main
+#       with:
+#         schemas: |
+#           cards.authorisation.requested.v1-value=src/main/avro/cards.authorisation.requested.v1.avsc
+#
+# Kafka and Schema Registry run as throwaway service containers. The base
+# branch's version of each schema is registered first, then the pull
+# request's version is tested with
+# POST /compatibility/subjects/<subject>/versions/latest.
+
+on:
+  workflow_call:
+    inputs:
+      schemas:
+        description: >-
+          Newline-separated <subject>=<path> pairs, paths relative to the
+          calling repository's root.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: Avro schema compatibility
+    # Temporarily disabled (CARDS-1423): the schema-registry service container
+    # fails to start on roughly one run in three, and this required check then
+    # blocks every cards PR. Re-enable once the registry starts reliably.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      kafka:
+        image: confluentinc/cp-kafka:7.9.1
+        env:
+          CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://localhost:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+        options: >-
+          --health-cmd "kafka-broker-api-versions --bootstrap-server localhost:9092"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+      schema-registry:
+        image: confluentinc/cp-schema-registry:7.9.1
+        ports:
+          - 8081:8081
+        env:
+          SCHEMA_REGISTRY_HOST_NAME: schema-registry
+          SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+          SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+          SCHEMA_REGISTRY_KAFKASTORE_INIT_TIMEOUT_MS: "120000"
+        options: >-
+          --health-cmd "curl -fsS http://localhost:8081/subjects"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 18
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Check schemas against the base branch
+        uses: dss26-org/cards-ci-workflows/.github/actions/schema-compat@main
+        with:
+          schemas: ${{ inputs.schemas }}
+          base-ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          registry-url: http://localhost:8081

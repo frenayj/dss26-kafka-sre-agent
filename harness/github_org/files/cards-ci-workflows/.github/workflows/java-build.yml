@@ -1,0 +1,61 @@
+name: java-build
+
+# Reusable Maven build for the Java services: compile, unit tests, package.
+#
+#   jobs:
+#     build:
+#       uses: dss26-org/cards-ci-workflows/.github/workflows/java-build.yml@main
+#       with:
+#         java-version: "21"
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: Temurin JDK version.
+        required: false
+        type: string
+        default: "21"
+      maven-args:
+        description: Maven goals and flags.
+        required: false
+        type: string
+        default: -B -ntp verify
+      working-directory:
+        description: Directory holding the pom.xml, relative to the repository root.
+        required: false
+        type: string
+        default: .
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+      - name: Build
+        env:
+          # Not MAVEN_ARGS: Maven 3.9 reads that variable itself and would get
+          # every argument twice.
+          BUILD_ARGS: ${{ inputs.maven-args }}
+        run: |
+          read -ra args <<< "$BUILD_ARGS"
+          mvn "${args[@]}"
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: surefire-reports
+          path: ${{ inputs.working-directory }}/**/target/surefire-reports/
+          if-no-files-found: ignore

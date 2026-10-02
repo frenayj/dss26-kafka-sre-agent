@@ -1,0 +1,64 @@
+{
+  "_comment_break": "BREAKING CHANGES vs cards_authorisation_requested_v1.avsc: (1) field 'amount' changed type from double -> string (no Avro promotion path; fundamentally unprojectable). (2) field 'country' removed entirely. The v1 reader has no way to project a string 'amount' onto a double, so the fraud-decisioning engine wedges on the first record encoded under this schema. (Earlier iterations of this demo used int instead of string, but Avro permits int->double promotion at the reader, so the breakage wasn't actually observable.)",
+  "type": "record",
+  "name": "CardAuthEvent",
+  "namespace": "com.dss26.payments",
+  "doc": "Card authorization event emitted by the merchant gateway.",
+  "fields": [
+    {
+      "name": "auth_id",
+      "type": "string",
+      "doc": "Globally unique authorization ID (UUID)."
+    },
+    {
+      "name": "card_token",
+      "type": "string",
+      "doc": "Tokenized PAN. Never the raw card number."
+    },
+    {
+      "name": "merchant_id",
+      "type": "string",
+      "doc": "Acquirer-issued merchant identifier."
+    },
+    {
+      "name": "amount",
+      "type": "string",
+      "doc": "Authorization amount as a decimal string in major units (consumer is expected to parse and round)."
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO-4217 currency code, e.g. USD, EUR, GBP.",
+      "default": "USD"
+    },
+    {
+      "name": "ts",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Authorization timestamp, epoch millis."
+    },
+    {
+      "name": "risk_signals",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "List of risk signal codes attached to this auth. May be empty.",
+      "default": []
+    },
+    {
+      "name": "channel",
+      "type": "string",
+      "doc": "Channel this auth came in on, e.g. CARD_PRESENT, ECOM, RECURRING.",
+      "default": "ECOM"
+    },
+    {
+      "name": "tier",
+      "type": "string",
+      "doc": "Environment tier label injected by the producer (prod/dev).",
+      "default": "prod"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# Secrets. Only the .sample templates are tracked.
+.env
+.env.*
+*.env
+!.env.sample
+ports.parallel
+# Lenses service-account key written by `make provision`.
+harness/stack/sa-credentials.conf
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime output
+logs/
+*.log
+
+# Local scratch and editor/agent state
+tmp/
+*.bak
+.DS_Store
+.idea/
+.vscode/
+.claude/
+.agents/
+.kilo/
+.playwright-mcp/
+
+# Maintainers' working notes (the public docs live alongside them in docs/)
+/specs/
+/docs/plans/
+/docs/runbook.md
+/docs/demo-video-script.md

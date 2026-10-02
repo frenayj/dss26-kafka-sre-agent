@@ -1,0 +1,69 @@
+{
+  "type": "record",
+  "name": "CardAuthEvent",
+  "namespace": "com.dss26.payments",
+  "doc": "Card authorization event emitted by the merchant gateway. Steady-state schema; backwards/forwards compatible.",
+  "fields": [
+    {
+      "name": "auth_id",
+      "type": "string",
+      "doc": "Globally unique authorization ID (UUID)."
+    },
+    {
+      "name": "card_token",
+      "type": "string",
+      "doc": "Tokenized PAN. Never the raw card number."
+    },
+    {
+      "name": "merchant_id",
+      "type": "string",
+      "doc": "Acquirer-issued merchant identifier."
+    },
+    {
+      "name": "amount",
+      "type": "double",
+      "doc": "Authorization amount in the transaction currency, major units."
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO-4217 currency code, e.g. USD, EUR, GBP.",
+      "default": "USD"
+    },
+    {
+      "name": "country",
+      "type": "string",
+      "doc": "ISO-3166 alpha-2 country code of the merchant.",
+      "default": "US"
+    },
+    {
+      "name": "ts",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Authorization timestamp, epoch millis."
+    },
+    {
+      "name": "risk_signals",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "List of risk signal codes attached to this auth. May be empty.",
+      "default": []
+    },
+    {
+      "name": "channel",
+      "type": "string",
+      "doc": "Channel this auth came in on, e.g. CARD_PRESENT, ECOM, RECURRING.",
+      "default": "ECOM"
+    },
+    {
+      "name": "tier",
+      "type": "string",
+      "doc": "Environment tier label injected by the producer (prod/dev).",
+      "default": "prod"
+    }
+  ]
+}

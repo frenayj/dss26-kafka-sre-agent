@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "MerchantKpi",
+  "namespace": "com.dss26.payments.analytics",
+  "doc": "Windowed KPIs for one merchant. Internal to merchant-analytics-stream: lives in the window stores and their changelogs only.",
+  "fields": [
+    {"name": "auth_count", "type": "long", "default": 0, "doc": "Authorisation requests in the window."},
+    {"name": "amount_by_currency", "type": {"type": "map", "values": "double"}, "default": {}, "doc": "Requested amount per ISO-4217 currency, major units."},
+    {"name": "max_amount", "type": "double", "default": 0.0, "doc": "Largest single request in the window, any currency."},
+    {"name": "channel_counts", "type": {"type": "map", "values": "long"}, "default": {}, "doc": "Requests per channel (CARD_PRESENT, ECOM, RECURRING, MOTO)."},
+    {"name": "risk_flagged_count", "type": "long", "default": 0, "doc": "Requests that arrived with at least one risk signal."}
+  ]
+}

@@ -1,0 +1,3 @@
+# Test and lint tools, on top of agent/requirements.txt (`make venv`).
+pytest>=8
+ruff>=0.6

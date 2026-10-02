@@ -1,0 +1,93 @@
+{
+  "incident": {
+    "id": "PI7K3FQ",
+    "type": "incident",
+    "summary": "[#48217] [Datadog] kafka_consumer_lag CRITICAL - fraud-decisioning-engine @ cards-prod-euw1",
+    "self": "https://dss26.pagerduty.com/incidents/PI7K3FQ",
+    "html_url": "https://dss26.pagerduty.com/incidents/PI7K3FQ",
+    "incident_number": 48217,
+    "title": "[Datadog] kafka_consumer_lag CRITICAL - fraud-decisioning-engine @ cards-prod-euw1",
+    "description": "Datadog monitor `kafka_consumer_lag` crossed its CRITICAL threshold.",
+    "created_at": "2026-05-07T17:42:11Z",
+    "updated_at": "2026-05-07T17:42:11Z",
+    "status": "triggered",
+    "incident_key": "datadog:kafka_consumer_lag:cards-prod-euw1:fraud-decisioning-engine",
+    "urgency": "high",
+    "priority": {
+      "id": "P53ZZH5",
+      "type": "priority_reference",
+      "summary": "P1",
+      "name": "P1",
+      "description": "Critical, customer-impacting. Page primary on-call immediately."
+    },
+    "service": {
+      "id": "PSVC42A",
+      "type": "service_reference",
+      "summary": "fraud-decisioning-svc",
+      "name": "fraud-decisioning-svc",
+      "self": "https://dss26.pagerduty.com/services/PSVC42A",
+      "html_url": "https://dss26.pagerduty.com/services/PSVC42A"
+    },
+    "escalation_policy": {
+      "id": "PEP9001",
+      "type": "escalation_policy_reference",
+      "summary": "Cards Platform - Primary",
+      "name": "Cards Platform - Primary"
+    },
+    "teams": [
+      {
+        "id": "PTEAM01",
+        "type": "team_reference",
+        "summary": "cards-platform"
+      }
+    ],
+    "assignments": [
+      {
+        "at": "2026-05-07T17:42:11Z",
+        "assignee": {
+          "id": "PUSER77",
+          "type": "user_reference",
+          "summary": "Jeremy (on-call)"
+        }
+      }
+    ],
+    "acknowledgements": [],
+    "alert_counts": {
+      "all": 1,
+      "triggered": 1,
+      "resolved": 0
+    },
+    "first_trigger_log_entry": {
+      "id": "RLOGENTRYABC",
+      "type": "trigger_log_entry_reference",
+      "summary": "Triggered by Datadog monitor: kafka_consumer_lag (id 19283746)"
+    },
+    "body": {
+      "type": "incident_body",
+      "details": "Datadog monitor `kafka_consumer_lag` (id 19283746) entered CRITICAL state. Query: `max(last_1m):avg:kafka.consumer_lag{kafka_cluster:cards-prod-euw1,consumer_group:fraud-decisioning-engine,topic:cards.authorisation.requested.v1} by {consumer_group,topic} > 5000`. Last evaluated value: 5,812 (threshold 5,000). See snapshot: https://dss26.datadoghq.eu/monitors/19283746?to_ts=1746636131000"
+    },
+    "custom_details": {
+      "alert_type": "metric_alert_monitor",
+      "transition": "Triggered",
+      "monitor_id": "19283746",
+      "monitor_name": "kafka_consumer_lag",
+      "monitor_query": "max(last_1m):avg:kafka.consumer_lag{kafka_cluster:cards-prod-euw1,consumer_group:fraud-decisioning-engine,topic:cards.authorisation.requested.v1} by {consumer_group,topic} > 5000",
+      "metric": "kafka.consumer_lag",
+      "metric_value": 5812,
+      "threshold_critical": 5000,
+      "evaluation_window": "last_1m",
+      "tags": [
+        "kafka_cluster:cards-prod-euw1",
+        "consumer_group:fraud-decisioning-engine",
+        "topic:cards.authorisation.requested.v1",
+        "service:fraud-decisioning-svc",
+        "team:cards-platform",
+        "env:prod",
+        "region:eu-west-1"
+      ],
+      "alert_link": "https://dss26.datadoghq.eu/monitors/19283746",
+      "snapshot_url": "https://dss26.datadoghq.eu/monitors/19283746?to_ts=1746636131000",
+      "runbook_url": "https://landoop.atlassian.net/wiki/spaces/DSS26/pages/3979280388/Runbook+Consumer+lag+critical"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+# fraud-decisioning-svc - production (cards-prod-euw1).
+# Rendered with the platform kafka-service chart. Changes here roll out on
+# merge through the cards-platform release pipeline; Tier-1, so a CHG ticket
+# goes in the PR description.
+
+replicaCount: 6
+
+image:
+  repository: harbor.dss26.internal/cards-platform/fraud-decisioning-svc
+  # Set to the commit SHA by the release pipeline.
+  tag: ""
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 1536Mi
+  limits:
+    memory: 2Gi
+
+podDisruptionBudget:
+  minAvailable: 4
+
+terminationGracePeriodSeconds: 60
+
+podAnnotations:
+  ad.datadoghq.com/fraud-decisioning-svc.checks: |
+    {"openmetrics": {"instances": [{"openmetrics_endpoint": "http://%%host%%:9102/metrics",
+      "namespace": "fraud_decisioning", "metrics": ["fraud_decisioning_.*"]}]}}
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: demo-kafka-prod:9092
+  SCHEMA_REGISTRY_URL: http://demo-kafka-prod:8081
+  INPUT_TOPIC: cards.authorisation.requested.v1
+  LEDGER_TOPIC: cards.ledger.posted.v1
+  KAFKA_CONSUMER_PROPERTIES: /etc/fraud-decisioning/consumer.properties
+  BATCH_SIZE: "500"
+  LOG_LEVEL: INFO
+
+# Rendered to /etc/fraud-decisioning/consumer.properties.
+kafka:
+  consumer:
+    group.id: fraud-decisioning-engine
+    auto.offset.reset: earliest
+    # The service commits after the ledger posting is acknowledged.
+    enable.auto.commit: false
+    session.timeout.ms: 45000
+    heartbeat.interval.ms: 3000
+    # INC-2025-03-18-002: 30000 was too tight for a full GC plus a batch and
+    # the group rebalanced every few minutes. Do not lower without a load test.
+    max.poll.interval.ms: 300000
+    fetch.max.bytes: 52428800

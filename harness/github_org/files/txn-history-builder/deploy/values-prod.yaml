@@ -1,0 +1,29 @@
+# Helm values for the cards-servicing chart, namespace cards-servicing (prod).
+image:
+  repository: registry.dss26.internal/cards-servicing/txn-history-builder
+
+replicaCount: 3
+
+# Bootstrap servers, Schema Registry URL and the SASL user come from the
+# platform-managed ConfigMap/Secret for the cluster we consume from.
+envFrom:
+  - configMapRef:
+      name: kafka-cards-prod-euw1
+  - secretRef:
+      name: kafka-user-txn-history-builder
+  - secretRef:
+      name: txn-history-builder-db
+
+env:
+  SPRING_PROFILES_ACTIVE: prod
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 768Mi
+  limits:
+    memory: 1Gi
+
+podDisruptionBudget:
+  minAvailable: 2

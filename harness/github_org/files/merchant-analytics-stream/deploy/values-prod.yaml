@@ -1,0 +1,26 @@
+image:
+  repository: registry.dss26.internal/payments-edge/merchant-analytics-stream
+
+# StatefulSet: each pod keeps its RocksDB state on its own volume.
+kind: StatefulSet
+replicaCount: 3
+
+persistence:
+  enabled: true
+  mountPath: /var/lib/merchant-analytics-stream
+  size: 20Gi
+
+envFrom:
+  - configMapRef:
+      name: kafka-cards-prod-euw1
+  - secretRef:
+      name: kafka-user-merchant-analytics-stream
+
+env:
+  NUM_STREAM_THREADS: "2"
+  STATE_DIR: /var/lib/merchant-analytics-stream
+  # Pod DNS name, so other instances can redirect IQ calls here.
+  APPLICATION_SERVER: "$(POD_NAME).merchant-analytics-stream.payments-edge.svc:8080"
+
+service:
+  port: 8080

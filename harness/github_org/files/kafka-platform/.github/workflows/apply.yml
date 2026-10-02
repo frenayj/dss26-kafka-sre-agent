@@ -1,0 +1,54 @@
+name: apply
+
+# Makes the clusters match main. The clusters are only reachable from inside
+# the cards network, so this runs on the platform's self-hosted runners; the
+# admin credentials are environment secrets synced from Vault.
+on:
+  push:
+    branches: [main]
+    paths: ["topics/**", "acls/**", "clusters/**"]
+  workflow_dispatch:
+
+# One apply at a time - two runs racing on the same cluster is how half a
+# change gets applied.
+concurrency:
+  group: kafka-apply
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dev:
+    runs-on: [self-hosted, linux, cards-kafka-admin]
+    environment: cards-dev-euw1
+    env:
+      KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_ADMIN_USERNAME }}
+      KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_ADMIN_PASSWORD }}
+      SCHEMA_REGISTRY_USER_INFO: ${{ secrets.SCHEMA_REGISTRY_USER_INFO }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install dependencies
+        run: python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt
+      - name: Plan
+        run: .venv/bin/python scripts/apply.py --cluster cards-dev-euw1 --plan
+      - name: Apply
+        run: .venv/bin/python scripts/apply.py --cluster cards-dev-euw1
+
+  prod:
+    needs: dev
+    runs-on: [self-hosted, linux, cards-kafka-admin]
+    # Required reviewers: platform-engineering (environment protection rule).
+    environment: cards-prod-euw1
+    env:
+      KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_ADMIN_USERNAME }}
+      KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_ADMIN_PASSWORD }}
+      SCHEMA_REGISTRY_USER_INFO: ${{ secrets.SCHEMA_REGISTRY_USER_INFO }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install dependencies
+        run: python3 -m venv .venv && .venv/bin/pip install -q -r requirements.txt
+      - name: Plan
+        run: .venv/bin/python scripts/apply.py --cluster cards-prod-euw1 --plan
+      - name: Apply
+        run: .venv/bin/python scripts/apply.py --cluster cards-prod-euw1

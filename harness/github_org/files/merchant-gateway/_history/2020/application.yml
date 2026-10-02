@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: merchant-gateway
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka-dc1-01.dss26.internal:9092,kafka-dc1-02.dss26.internal:9092,kafka-dc1-03.dss26.internal:9092}
+    producer:
+      client-id: merchant-gateway
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 30000
+
+gateway:
+  topic: acq.auth.requests
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

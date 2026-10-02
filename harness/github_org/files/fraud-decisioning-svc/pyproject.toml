@@ -1,0 +1,22 @@
+[project]
+name = "fraud-decisioning-svc"
+description = "Approves, reviews or declines card authorisations and posts them to the ledger."
+requires-python = ">=3.12"
+dynamic = ["version"]
+dependencies = [
+    "confluent-kafka[avro]>=2.5,<2.6",
+    "fastavro>=1.9",
+    "prometheus-client>=0.19",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

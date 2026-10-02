@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: kyc-onboarding-svc
+  datasource:
+    url: ${KYC_DB_URL}
+    username: ${KYC_DB_USER}
+    password: ${KYC_DB_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL}
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    producer:
+      client-id: kyc-onboarding-svc
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        enable.idempotence: true
+        auto.register.schemas: false
+        use.latest.version: true
+
+kyc:
+  idv:
+    base-url: ${KYC_IDV_BASE_URL}
+    api-key: ${KYC_IDV_API_KEY}
+  sanctions:
+    base-url: ${KYC_SANCTIONS_URL:http://sanctions-screening-svc.compliance-platform.svc:8080}

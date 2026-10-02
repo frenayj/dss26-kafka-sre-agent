@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: payments-hub
+  artemis:
+    mode: native
+    broker-url: ${PAYMENTS_GATEWAY_BROKER_URL}
+    user: ${PAYMENTS_GATEWAY_USER}
+    password: ${PAYMENTS_GATEWAY_PASSWORD}
+
+hub:
+  sanctions:
+    base-url: ${HUB_SANCTIONS_URL:http://sanctions-screening-svc.compliance-platform.svc:8080}
+  vop:
+    base-url: ${HUB_VOP_URL}
+  # Clearing and settlement mechanisms per scheme (gateway queue -> CSM).
+  csm:
+    sct: STEP2
+    sct-inst: [RT1, TIPS]
+    t2: T2-RTGS
+    swift: SWIFTNET-FINPLUS
